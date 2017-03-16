@@ -3,14 +3,35 @@ import sys
 
 from gmusicapi import Mobileclient
 
+try:
+    import credentials
+    # credentials.py is in .gitignore and can be shared with other scripts
+    username = credentials.username
+    password = credentials.password
+except ImportError:
+    username = 'username'
+    password = 'password'
+
+try:
+    # optionally hardcode id to workaround https://github.com/simon-weber/gmusicapi/issues/408
+    android_id = credentials.android_id
+except (NameError, AttributeError):
+    android_id = Mobileclient.FROM_MAC_ADDRESS
+
 
 def map_track_duplication(tracks):
     album_track_duplicate_map = {}
     for track in tracks:
         albumNorm = track['album'].lower()
         titleNorm = track['title'].lower()
-        trackNumberNorm = track['trackNumber']
-        discNumberNorm = track['discNumber']
+        try:
+            trackNumberNorm = track['trackNumber']
+        except:
+            trackNumberNorm = 0
+        try:
+            discNumberNorm = track['discNumber']
+        except:
+            discNumberNorm = 0
         if albumNorm not in album_track_duplicate_map:
             album_track_duplicate_map.update({albumNorm: {}})
         if titleNorm not in album_track_duplicate_map[albumNorm]:
@@ -49,7 +70,11 @@ def get_duplicate_tracks(all_tracks_by_album, album_track_duplicate_map):
                                     if titleNorm == track_title:
                                         trackNumberNorm = track['trackNumber']
                                         if trackNumberNorm == track_number:
-                                            discNumberNorm = track['discNumber']
+                                            try:
+                                                discNumberNorm = track['discNumber']
+                                            except:
+                                                discNumberNorm = 0
+
                                             if discNumberNorm == disc_number and duplicates > 0:
                                                 duplicate_tracks.append(track)
                                                 print("Queuing for removal: '" + track['title'] + "' from album '" + track['album'] + "' by '" + track['artist'])
@@ -59,7 +84,7 @@ def get_duplicate_tracks(all_tracks_by_album, album_track_duplicate_map):
 
 
 def query_yes_no(question, default="yes"):
-    """Ask a yes/no question via raw_input() and return their answer.
+    """Ask a yes/no question via input() and return their answer.
 
     "question" is a string that is presented to the user.
     "default" is the presumed answer if the user just hits <Enter>.
@@ -81,7 +106,11 @@ def query_yes_no(question, default="yes"):
 
     while True:
         sys.stdout.write(question + prompt)
-        choice = input().lower()
+        if sys.version_info[0] < 3:
+            choice = raw_input().lower()
+        else:
+            choice = input().lower()
+            
         if default is not None and choice == '':
             return valid[default]
         elif choice in valid:
@@ -99,7 +128,7 @@ def get_track_ids(tracks):
 
 
 api = Mobileclient()
-logged_in = api.login('username', 'password', Mobileclient.FROM_MAC_ADDRESS)
+logged_in = api.login(username, password, android_id)
 
 if logged_in:
     print("Successfully logged in. Beginning duplicate detection process.")
